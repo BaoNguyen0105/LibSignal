@@ -2,6 +2,7 @@ from common.registry import Registry
 from agent.dqn import DQNAgent
 from federated.agent.base import BaseFLAgent
 from generator import LaneVehicleGenerator
+import numpy as np
 
 @Registry.register_model('fl_dqn')
 class FL_DQNAgent(DQNAgent, BaseFLAgent):
@@ -26,5 +27,5 @@ class FL_DQNAgent(DQNAgent, BaseFLAgent):
         self.target_model.load_state_dict(weights)
 
     def get_reward(self):
-        wait_time = self.reward_generator.generate()
-        return - 0.01 * (wait_time ** 2)
+        wait_time = np.squeeze(self.reward_generator.generate())
+        return float(- 0.01 * (wait_time ** 2))
