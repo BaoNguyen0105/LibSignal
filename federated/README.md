@@ -8,12 +8,12 @@ This module adds **Federated Learning (FL)** to LibSignal. Each traffic intersec
 
 ```text
 federated/
-├── agent/          # Traffic RL agents.
-├── profile/        # Hardware/network settings per intersection.
-├── compression/    # Compress weights before sending.
+├── agent/          # Base Model Implementation
+├── profile/        # System Settings for every Clients
+├── compression/    # Weight Compression Module
 ├── client/         # Combines (Agent + Profile + Compressor) into one unit.
-├── selection/      # Picks which clients join a round.
-├── aggregation/    # Combines client weights into a global model.
+├── selection/      # Client Selection Module
+├── aggregation/    # Model Aggregation Module
 ├── trainer/        # Runs the simulation and federated rounds.
 └── configs/        # YAML configuration files.
 ```
