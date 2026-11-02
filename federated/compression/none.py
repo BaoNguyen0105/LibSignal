@@ -7,10 +7,10 @@ class NoCompression(BaseCompressor):
     def __init__(self, **kwargs):
         pass
 
-    def compress(self, weights):
+    def compress(self, weights, **kwargs):
         # Return weights completely untouched!
         return weights
 
-    def decompress(self, compressed_weights):
+    def decompress(self, compressed_weights, **kwargs):
         # Return weights completely untouched!
         return compressed_weights

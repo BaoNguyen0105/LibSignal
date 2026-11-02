@@ -1,7 +1,10 @@
+import os
 from abc import ABC, abstractmethod
+import numpy as np
 from trainer.tsc_trainer import TSCTrainer
 from common.registry import Registry
 from federated.profile import build_profile
+from federated.client import Client
 
 
 class BaseFLTrainer(TSCTrainer, ABC):
@@ -10,24 +13,147 @@ class BaseFLTrainer(TSCTrainer, ABC):
     Inherits all CityFlow simulation and evaluation machinery from TSCTrainer.
     """
     def __init__(self, logger, gpu=0, cpu=False, name="fl_tsc"):
-        # Instantiates world, agents, metric, and env via TSCTrainer
+        self.profiles = {}
         super().__init__(logger=logger, gpu=gpu, cpu=cpu, name=name)
 
         # 1. Load trainer params from LibSignal registry
         trainer_param = Registry.mapping['trainer_mapping']['setting'].param
         self.aggregate_interval = trainer_param.get('aggregate_interval', 20)
-        profile_cfg = trainer_param.get("client_profiles", {})
 
-        # 2. Physical network profiles managed directly by the Trainer
-        self.profiles = {
-            ag.get_client_id(): build_profile(ag.get_client_id(), profile_cfg)
-            for ag in self.agents
-        }
-
-        # 3. Pluggable FL components
+        # 2. Strategy placeholders (subclasses initialize these)
         self.selector = None
         self.aggregator = None
         self.compressor = None
+        self.clients = {}
+
+        # 3. Simulation tracking state
+        self.total_decision_num = 0
+        self.flush = 0
+
+    def create_agents(self):
+        """Builds hardware profiles first, then instantiates agents and binds profile constraints."""
+        trainer_param = Registry.mapping['trainer_mapping']['setting'].param
+        profile_cfg = trainer_param.get("client_profiles", {})
+        self.profiles = {
+            str(inter_id): build_profile(str(inter_id), profile_cfg)
+            for inter_id in self.world.intersection_ids
+        }
+
+        super().create_agents()
+        for ag in self.agents:
+            profile = self.profiles[ag.get_client_id()]
+            ag.set_buffer_size(profile.buffer_size)
+
+    def create_clients(self):
+        """Constructs Client instances binding each Agent, Profile, and Compressor."""
+        self.clients = {
+            ag.get_client_id(): Client(ag, self.profiles[ag.get_client_id()], self.compressor)
+            for ag in self.agents
+        }
+
+    def should_train_agent(self, ag) -> bool:
+        """Determines whether a given agent should run a local gradient step."""
+        return self.total_decision_num % self.update_model_rate == self.update_model_rate - 1
+
+    def on_step_end(self):
+        """Hook called at the end of every simulation step (e.g. for Async or Step-based FL)."""
+        pass
+
+    def train_episode(self, e: int):
+        """Runs one full CityFlow episode (all steps, metrics, and local agent updates)."""
+        self.metric.clear()
+        last_obs = self.env.reset()
+
+        for a in self.agents:
+            a.reset()
+
+        if Registry.mapping['command_mapping']['setting'].param['world'] == 'cityflow':
+            if self.save_replay and e % self.save_rate == 0:
+                self.env.eng.set_save_replay(True)
+                self.env.eng.set_replay_file(os.path.join(self.replay_file_dir, f"episode_{e}.txt"))
+            else:
+                self.env.eng.set_save_replay(False)
+
+        episode_loss = []
+        i = 0
+        while i < self.steps:
+            if i % self.action_interval == 0:
+                last_phase = np.stack([ag.get_phase() for ag in self.agents])
+
+                if self.total_decision_num > self.learning_start:
+                    actions = []
+                    for idx, ag in enumerate(self.agents):
+                        actions.append(ag.get_action(last_obs[idx], last_phase[idx], test=False))
+                    actions = np.stack(actions)
+                else:
+                    actions = np.stack([ag.sample() for ag in self.agents])
+
+                actions_prob = []
+                for idx, ag in enumerate(self.agents):
+                    actions_prob.append(ag.get_action_prob(last_obs[idx], last_phase[idx]))
+
+                rewards_list = []
+                for _ in range(self.action_interval):
+                    obs, rewards, dones, _ = self.env.step(actions.flatten())
+                    i += 1
+                    rewards_list.append(np.stack(rewards))
+                rewards = np.mean(rewards_list, axis=0)
+                self.metric.update(rewards)
+
+                cur_phase = np.stack([ag.get_phase() for ag in self.agents])
+                for idx, ag in enumerate(self.agents):
+                    ag.remember(
+                        last_obs[idx], last_phase[idx], actions[idx], actions_prob[idx],
+                        rewards[idx], obs[idx], cur_phase[idx], dones[idx],
+                        f'{e}_{i//self.action_interval}_{ag.id}'
+                    )
+                self.flush += 1
+                if self.flush == self.buffer_size - 1:
+                    self.flush = 0
+
+                self.total_decision_num += 1
+                last_obs = obs
+
+            # Local training step for agents (respecting per-client compute_speed)
+            if self.total_decision_num > self.learning_start:
+                step_losses = [
+                    ag.train() for ag in self.agents if self.should_train_agent(ag)
+                ]
+                if step_losses:
+                    episode_loss.append(np.mean(np.stack(step_losses)))
+
+            # Target network update
+            if self.total_decision_num > self.learning_start and \
+                    self.total_decision_num % self.update_target_rate == self.update_target_rate - 1:
+                [ag.update_target_network() for ag in self.agents]
+
+            self.on_step_end()
+
+            if all(dones):
+                break
+
+        mean_loss = float(np.mean(np.array(episode_loss))) if len(episode_loss) > 0 else 0.0
+
+        self.writeLog("TRAIN", e, self.metric.real_average_travel_time(),
+                      mean_loss, self.metric.rewards(), self.metric.queue(),
+                      self.metric.delay(), self.metric.throughput())
+
+        self.logger.info("step:{}/{}, q_loss:{:.4f}, rewards:{:.2f}, queue:{:.2f}, delay:{:.2f}, throughput:{}".format(
+            i, self.steps, mean_loss, self.metric.rewards(), self.metric.queue(),
+            self.metric.delay(), int(self.metric.throughput())))
+
+        if e % self.save_rate == 0:
+            [ag.save_model(e=e) for ag in self.agents]
+
+        self.logger.info("episode:{}/{}, real avg travel time:{:.2f}".format(
+            e, self.episodes, self.metric.real_average_travel_time()))
+
+        for j in range(len(self.world.intersections)):
+            self.logger.debug("intersection:{}, mean_episode_reward:{}, mean_queue:{}".format(
+                j, self.metric.lane_rewards()[j], self.metric.lane_queue()[j]))
+
+        if self.test_when_train:
+            self.train_test(e)
 
     @abstractmethod
     def federated_round(self):
