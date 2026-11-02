@@ -17,7 +17,7 @@ from utils.logger import setup_logging, load_config, get_output_file_path
 
 # Arguments parser
 parser = argparse.ArgumentParser(description='Run Federated Experiment')
-parser.add_argument('--thread_num', type=int, default=4)
+parser.add_argument('--thread_num', type=int, default=8)
 parser.add_argument('--ngpu', type=str, default="-1")
 parser.add_argument('--prefix', type=str, default='test')
 parser.add_argument('--seed', type=int, default=None)

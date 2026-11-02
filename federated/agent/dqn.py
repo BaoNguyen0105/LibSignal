@@ -40,10 +40,8 @@ class FL_DQNAgent(DQNAgent, BaseFLAgent):
         b_t, b_tp, rewards, actions = self._batchwise(samples)
         out = self.target_model(b_tp, train=False)
         target = rewards + self.gamma * torch.max(out, dim=1)[0]
-        target_f = self.model(b_t, train=False)
-        for i, action in enumerate(actions):
-            target_f[i][action] = target[i]
-        loss = self.criterion(self.model(b_t, train=True), target_f) + self.regularization_loss()
+        q_values = self.model(b_t, train=True).gather(1, actions.view(-1, 1)).squeeze(1)
+        loss = self.criterion(q_values, target) + self.regularization_loss()
         self.optimizer.zero_grad()
         loss.backward()
         clip_grad_norm_(self.model.parameters(), self.grad_clip)

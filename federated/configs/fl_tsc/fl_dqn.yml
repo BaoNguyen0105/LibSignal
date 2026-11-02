@@ -1,11 +1,17 @@
 includes:
   - configs/tsc/dqn.yml
 
+world:
+  saveReplay: False
+
 model:
   name: fl_dqn
   train_model: True
 
 trainer:
+  update_model_rate: 5
+  test_when_train: False
+
   # Trigger federated aggregation every 5 episodes
   aggregate_interval: 5
 

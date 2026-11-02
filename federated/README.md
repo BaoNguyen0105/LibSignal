@@ -43,7 +43,7 @@ federated/
 Run [`federated_run.py`](../federated_run.py) from the `LibSignal/` root folder:
 
 ```bash
-python federated_run.py -t fl_tsc -a fl_dqn -w cityflow -n cityflow4x4
+python federated_run.py
 ```
 
 ### Changing Settings (`federated/configs/fl_tsc/fl_dqn.yml`)
