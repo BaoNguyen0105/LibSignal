@@ -1,20 +1,14 @@
 import os
 import sys
-
-# Ensure root LibSignal directory is on python path
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
-
 import time
 import argparse
 import logging
 
-import federated  # Registers all models, trainers, tasks, and profiles
 import task
 import trainer
 import agent
 import dataset
+import federated  # Registers all FL models, trainers, tasks, and profiles
 from common.registry import Registry
 from common import interface
 from common.utils import *
@@ -45,11 +39,11 @@ logging_level = logging.DEBUG if args.debug else logging.INFO
 
 def build_fl_config(pArgs):
     """Checks federated/configs/ first; falls back to root configs/ if needed."""
-    fl_config_path = os.path.join(ROOT_DIR, 'federated', 'configs', pArgs.task, f'{pArgs.agent}.yml')
+    fl_config_path = os.path.join('federated', 'configs', pArgs.task, f'{pArgs.agent}.yml')
     if os.path.exists(fl_config_path):
         config, duplicates = load_config(fl_config_path)
     else:
-        config, duplicates = load_config(os.path.join(ROOT_DIR, 'configs', pArgs.task, f'{pArgs.agent}.yml'))
+        config, duplicates = load_config(os.path.join('configs', pArgs.task, f'{pArgs.agent}.yml'))
     config.update({'command': pArgs.__dict__})
     return config, duplicates
 
