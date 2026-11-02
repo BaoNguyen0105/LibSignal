@@ -29,7 +29,7 @@ class FL_DQNAgent(DQNAgent, BaseFLAgent):
         out = self.target_model(b_tp, train=False)
         target = rewards + self.gamma * torch.max(out, dim=1)[0]
         q_values = self.model(b_t, train=True).gather(1, actions.view(-1, 1)).squeeze(1)
-        loss = self.criterion(q_values, target) + self.regularization_loss()
+        loss = (self.criterion(q_values, target) / self.action_space.n) + self.regularization_loss()
         self.optimizer.zero_grad()
         loss.backward()
         clip_grad_norm_(self.model.parameters(), self.grad_clip)

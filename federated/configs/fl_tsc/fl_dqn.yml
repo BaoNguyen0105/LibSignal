@@ -11,7 +11,7 @@ model:
   load_model: False
 
 trainer:
-  update_model_rate: 5
+  update_model_rate: 1
   test_when_train: False
   episodes: 10
   steps: 3600

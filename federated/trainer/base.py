@@ -46,7 +46,11 @@ class BaseFLTrainer(TSCTrainer, ABC):
             ag.set_buffer_size(profile.buffer_size)
 
     def create_clients(self):
-        """Constructs Client instances binding each Agent, Profile, and Compressor."""
+        """Constructs Client instances and broadcasts a common initial global model."""
+        initial_weights = self.agents[0].get_weights()
+        for ag in self.agents:
+            ag.set_weights(initial_weights)
+
         self.clients = {
             ag.get_client_id(): Client(ag, self.profiles[ag.get_client_id()], self.compressor)
             for ag in self.agents
@@ -67,8 +71,12 @@ class BaseFLTrainer(TSCTrainer, ABC):
 
         if Registry.mapping['command_mapping']['setting'].param['world'] == 'cityflow':
             if self.save_replay and e % self.save_rate == 0:
+                replay_rel = os.path.join(self.replay_file_dir, f"episode_{e}.txt")
+                replay_abs = os.path.join(self.dir, replay_rel)
+                if os.path.exists(replay_abs):
+                    os.remove(replay_abs)
                 self.env.eng.set_save_replay(True)
-                self.env.eng.set_replay_file(os.path.join(self.replay_file_dir, f"episode_{e}.txt"))
+                self.env.eng.set_replay_file(replay_rel)
             else:
                 self.env.eng.set_save_replay(False)
 
@@ -151,6 +159,13 @@ class BaseFLTrainer(TSCTrainer, ABC):
 
         if self.test_when_train:
             self.train_test(e)
+
+    def test(self, drop_load=True):
+        if Registry.mapping['command_mapping']['setting'].param['world'] == 'cityflow' and self.save_replay:
+            final_abs = os.path.join(self.dir, self.replay_file_dir, "final.txt")
+            if os.path.exists(final_abs):
+                os.remove(final_abs)
+        return super().test(drop_load=drop_load)
 
     @abstractmethod
     def federated_round(self):
