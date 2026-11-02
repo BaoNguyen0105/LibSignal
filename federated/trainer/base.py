@@ -25,6 +25,7 @@ class BaseFLTrainer(TSCTrainer, ABC):
         self.aggregator = None
         self.compressor = None
         self.clients = {}
+        self.selected_clients = []
 
         # 3. Simulation tracking state
         self.total_decision_num = 0
@@ -50,10 +51,7 @@ class BaseFLTrainer(TSCTrainer, ABC):
             ag.get_client_id(): Client(ag, self.profiles[ag.get_client_id()], self.compressor)
             for ag in self.agents
         }
-
-    def should_train_agent(self, ag) -> bool:
-        """Determines whether a given agent should run a local gradient step."""
-        return self.total_decision_num % self.update_model_rate == self.update_model_rate - 1
+        self.selected_clients = list(self.clients.values())
 
     def on_step_end(self):
         """Hook called at the end of every simulation step (e.g. for Async or Step-based FL)."""
@@ -114,18 +112,17 @@ class BaseFLTrainer(TSCTrainer, ABC):
                 self.total_decision_num += 1
                 last_obs = obs
 
-            # Local training step for agents (respecting per-client compute_speed)
-            if self.total_decision_num > self.learning_start:
-                step_losses = [
-                    ag.train() for ag in self.agents if self.should_train_agent(ag)
-                ]
+            # Local training step for selected clients
+            if self.total_decision_num > self.learning_start and \
+                    self.total_decision_num % self.update_model_rate == self.update_model_rate - 1:
+                step_losses = [c.agent.train() for c in self.selected_clients]
                 if step_losses:
                     episode_loss.append(np.mean(np.stack(step_losses)))
 
-            # Target network update
+            # Target network update for selected clients
             if self.total_decision_num > self.learning_start and \
                     self.total_decision_num % self.update_target_rate == self.update_target_rate - 1:
-                [ag.update_target_network() for ag in self.agents]
+                [c.agent.update_target_network() for c in self.selected_clients]
 
             self.on_step_end()
 

@@ -22,12 +22,10 @@ class SyncFLTrainer(BaseFLTrainer):
         self.logger.info(f"[FL] SyncFLTrainer ready (aggregation every {self.aggregate_interval} episodes).")
 
     def federated_round(self):
-        selected_clients = self.selector.select(list(self.clients.values()))
-
         client_weights = []
         sample_counts = []
         active_clients = []
-        for client in selected_clients:
+        for client in self.selected_clients:
             compressed = client.get_weights()
             if compressed is None:
                 self.logger.info(f"[FL] Client {client.get_client_id()} dropped update.")
@@ -51,6 +49,9 @@ class SyncFLTrainer(BaseFLTrainer):
     def train(self):
         self.logger.info(f"Start Training for {self.episodes} episodes...")
         for e in range(self.episodes):
+            if e % self.aggregate_interval == 0:
+                self.selected_clients = self.selector.select(list(self.clients.values()))
+
             self.train_episode(e)  # Inherited from BaseFLTrainer!
 
             if (e + 1) % self.aggregate_interval == 0:
