@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from LibSignal.trainer.tsc_trainer import TSCTrainer
+from trainer.tsc_trainer import TSCTrainer
 from common.registry import Registry
 from federated.profile import build_profile
 

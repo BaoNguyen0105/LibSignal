@@ -1,5 +1,5 @@
 from common.registry import Registry
-from LibSignal.task.task import BaseTask
+from task.task import BaseTask
 
 @Registry.register_task('fl_tsc')
 class FLTSCTask(BaseTask):

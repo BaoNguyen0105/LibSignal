@@ -1,5 +1,5 @@
-from LibSignal.common.registry import Registry
-from LibSignal.agent.dqn import DQNAgent
+from common.registry import Registry
+from agent.dqn import DQNAgent
 from federated.agent.base import BaseFLAgent
 from generator import LaneVehicleGenerator
 
@@ -7,7 +7,7 @@ from generator import LaneVehicleGenerator
 class FL_DQNAgent(DQNAgent, BaseFLAgent):
     """
     Inherits all DQN logic (replay buffer, get_ob, get_action, train, remember)
-    from LibSignal's DQNAgent, and implements the FL interface.
+    from 's DQNAgent, and implements the FL interface.
     """
     def __init__(self, world, rank):
         super().__init__(world, rank)

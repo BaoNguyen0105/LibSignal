@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from LibSignal.agent.rl_agent import RLAgent
+from agent.rl_agent import RLAgent
 
 
 class BaseFLAgent(RLAgent, ABC):
