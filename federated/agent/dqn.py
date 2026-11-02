@@ -1,34 +1,22 @@
-from common.registry import Registry
-from agent.dqn import DQNAgent
-from federated.agent.base import BaseFLAgent
-from generator import LaneVehicleGenerator
+import os
 import random
 import numpy as np
 import torch
 from torch.nn.utils import clip_grad_norm_
+from common.registry import Registry
+from agent.dqn import DQNAgent
+from federated.agent.base import BaseFLAgent
 
 
 @Registry.register_model('fl_dqn')
 class FL_DQNAgent(DQNAgent, BaseFLAgent):
     """
-    Inherits all DQN logic (replay buffer, get_ob, get_action, train, remember)
+    Inherits all DQN logic (replay buffer, get_ob, get_action, train, remember, get_reward)
     from LibSignal's DQNAgent, and implements the FL interface.
     """
     def __init__(self, world, rank):
         super().__init__(world, rank)
         self.round_sample_count = 0
-        self._init_reward_generator()
-
-    def _init_reward_generator(self):
-        # Set generator to measure seconds of waiting time, not car count
-        self.reward_generator = LaneVehicleGenerator(
-            self.world, self.inter, ["lane_waiting_time_count"],
-            in_only=True, average='all', negative=False
-        )
-
-    def reset(self):
-        super().reset()
-        self._init_reward_generator()
 
     def remember(self, last_obs, last_phase, actions, actions_prob, rewards, obs, cur_phase, done, key):
         super().remember(last_obs, last_phase, actions, actions_prob, rewards, obs, cur_phase, done, key)
@@ -59,6 +47,10 @@ class FL_DQNAgent(DQNAgent, BaseFLAgent):
         self.update_target_network()
         self.reset_sample_count()
 
-    def get_reward(self):
-        wait_time = np.squeeze(self.reward_generator.generate())
-        return float(- 0.01 * (wait_time ** 2))
+    def load_model(self, e):
+        model_name = os.path.join(
+            Registry.mapping['logger_mapping']['path'].path, 'model', f'{e}_{self.rank}.pt'
+        )
+        state_dict = torch.load(model_name, weights_only=True)
+        self.model.load_state_dict(state_dict)
+        self.target_model.load_state_dict(state_dict)

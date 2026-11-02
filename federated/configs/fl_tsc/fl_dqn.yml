@@ -2,15 +2,20 @@ includes:
   - configs/tsc/dqn.yml
 
 world:
-  saveReplay: False
+  saveReplay: True
 
 model:
   name: fl_dqn
   train_model: True
+  test_model: False
+  load_model: False
 
 trainer:
   update_model_rate: 5
   test_when_train: False
+  episodes: 10
+  steps: 3600
+  test_steps: 3600
 
   # Trigger federated aggregation every 5 episodes
   aggregate_interval: 5

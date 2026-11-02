@@ -30,6 +30,7 @@ parser.add_argument('-a', '--agent', type=str, default="fl_dqn", help="agent typ
 parser.add_argument('-w', '--world', type=str, default="cityflow", choices=['cityflow', 'sumo'])
 parser.add_argument('-n', '--network', type=str, default="cityflow4x4", help="network name")
 parser.add_argument('-d', '--dataset', type=str, default='onfly')
+parser.add_argument('--test', action='store_true', help="evaluate saved model without training")
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.ngpu
@@ -45,6 +46,11 @@ def build_fl_config(pArgs):
     else:
         config, duplicates = load_config(os.path.join('configs', pArgs.task, f'{pArgs.agent}.yml'))
     config.update({'command': pArgs.__dict__})
+    if pArgs.test:
+        config['model']['train_model'] = False
+        config['model']['test_model'] = True
+        config['model']['load_model'] = True
+        config['world']['saveReplay'] = True
     return config, duplicates
 
 
