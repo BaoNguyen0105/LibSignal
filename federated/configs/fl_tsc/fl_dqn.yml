@@ -1,0 +1,19 @@
+includes:
+  - configs/tsc/dqn.yml
+
+model:
+  name: fl_dqn
+  train_model: True
+
+trainer:
+  # Trigger federated aggregation every 5 episodes
+  aggregate_interval: 5
+
+  # Edge hardware and network simulation
+  client_profiles:
+    type: "simple"
+    default:
+      buffer_size: 5000
+      drop_rate: 0.0
+      latency_ms: 20.0
+      bandwidth_mbps: 10.0
