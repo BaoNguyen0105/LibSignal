@@ -7,6 +7,7 @@ class Client:
         self.agent = agent
         self.profile = profile
         self.compressor = compressor
+        self.base_weights = None
         self.agent.set_buffer_size(self.profile.buffer_size)
 
     def get_weights(self, compress: bool = True, real_sleep: bool = False):
@@ -20,6 +21,7 @@ class Client:
 
     def set_weights(self, weights):
         """Updates the local agent with the global model."""
+        self.base_weights = {k: v.detach().clone() for k, v in weights.items()}
         self.agent.set_weights(weights)
 
     def get_sample_count(self):
