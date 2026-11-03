@@ -1,0 +1,49 @@
+includes:
+  - configs/tsc/base.yml
+
+world:
+  saveReplay: True
+
+model:
+  name: fl_sac
+  train_model: True
+  test_model: False
+  load_model: False
+  sac_temperature: 0.1
+  epsilon: 0.1
+  epsilon_decay: 0.995
+  epsilon_min: 0.01
+  one_hot: True
+  phase: True
+
+trainer:
+  learning_start: 1000
+  buffer_size: 5000
+  update_model_rate: 1
+  test_when_train: False
+  episodes: 10
+  steps: 3600
+  test_steps: 3600
+
+  # Trigger federated aggregation every 5 episodes
+  aggregate_interval: 5
+
+  # Pluggable FL strategy configuration
+  selection:
+    type: "all"         # "all" or "random" (with e.g. fraction: 0.5)
+  aggregation:
+    type: "fedavg"
+    weighted: False     # Set True for sample/traffic-weighted FedAvg
+  compression:
+    type: "none"
+
+  # Edge hardware and network simulation
+  client_profiles:
+    type: "simple"
+    default:
+      buffer_size: 5000
+      compute_speed: 1.0
+      drop_rate: 0.0
+      latency_ms: 20.0
+      bandwidth_mbps: 10.0
+
