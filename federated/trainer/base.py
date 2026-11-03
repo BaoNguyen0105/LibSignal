@@ -5,6 +5,7 @@ from trainer.tsc_trainer import TSCTrainer
 from common.registry import Registry
 from federated.profile import build_profile
 from federated.client import Client
+from federated.metrics import build_metrics, compute_scoped_metrics
 
 
 class BaseFLTrainer(TSCTrainer, ABC):
@@ -26,6 +27,8 @@ class BaseFLTrainer(TSCTrainer, ABC):
         self.compressor = None
         self.clients = {}
         self.selected_clients = []
+        self.global_weights = None
+        self.fl_metrics = build_metrics(trainer_param.get("fl_metrics"))
 
         # 3. Simulation tracking state
         self.total_decision_num = 0
@@ -43,6 +46,7 @@ class BaseFLTrainer(TSCTrainer, ABC):
         initial_weights = self.agents[0].get_weights()
         for ag in self.agents:
             ag.set_weights(initial_weights)
+        self.global_weights = initial_weights
 
         self.clients = {
             ag.get_id(): Client(ag, self.profiles[ag.get_id()], self.compressor)
@@ -146,6 +150,11 @@ class BaseFLTrainer(TSCTrainer, ABC):
         self.logger.info("episode:{}/{}, real avg travel time:{:.2f}".format(
             e, self.episodes, self.metric.real_average_travel_time()))
 
+        ep_metrics = compute_scoped_metrics(self.fl_metrics, "episode", metric=self.metric)
+        if ep_metrics:
+            ep_str = ", ".join(f"{k}:{v:.4f}" for k, v in ep_metrics.items())
+            self.logger.info(f"[FL Episode Metrics] {ep_str}")
+
         for j in range(len(self.world.intersections)):
             self.logger.debug("intersection:{}, mean_episode_reward:{}, mean_queue:{}".format(
                 j, self.metric.lane_rewards()[j], self.metric.lane_queue()[j]))
@@ -158,7 +167,12 @@ class BaseFLTrainer(TSCTrainer, ABC):
             final_abs = os.path.join(self.dir, self.replay_file_dir, "final.txt")
             if os.path.exists(final_abs):
                 os.remove(final_abs)
-        return super().test(drop_load=drop_load)
+        res_metric = super().test(drop_load=drop_load)
+        ep_metrics = compute_scoped_metrics(self.fl_metrics, "episode", metric=self.metric)
+        if ep_metrics:
+            ep_str = ", ".join(f"{k}:{v:.4f}" for k, v in ep_metrics.items())
+            self.logger.info(f"[FL Final Test Metrics] {ep_str}")
+        return res_metric
 
     @abstractmethod
     def federated_round(self):

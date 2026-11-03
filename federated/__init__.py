@@ -4,5 +4,6 @@ from . import selection
 from . import aggregation
 from . import compression
 from . import profile
+from . import metrics
 from . import task
 from . import client

@@ -15,8 +15,8 @@ class Client:
             return None
         weights = self.agent.get_weights()
         if real_sleep:
-            time.sleep(self.profile.get_latency() / 1000.0)
-        return self.compressor.compress(weights) if compress else weights
+            time.sleep(self.get_latency(uncompressed=not compress) / 1000.0)
+        return self.compressor.compress(weights, client=self) if compress else weights
 
     def set_weights(self, weights):
         """Updates the local agent with the global model."""
@@ -31,5 +31,31 @@ class Client:
     def get_client_id(self):
         return self.agent.get_id()
 
-    def get_latency(self):
-        return self.profile.get_latency()
+    def step_profile(self) -> None:
+        self.profile.step_state()
+
+    def get_compression_ratio(self) -> float:
+        if self.compressor is None:
+            return 1.0
+        return self.compressor.get_compression_ratio(client=self)
+
+    def get_payload_size_mb(self, uncompressed: bool = False) -> float:
+        ratio = 1.0 if uncompressed else self.get_compression_ratio()
+        return self.profile.get_payload_size_mb(compression_ratio=ratio)
+
+    def get_latency(self, uncompressed: bool = False) -> float:
+        ratio = 1.0 if uncompressed else self.get_compression_ratio()
+        return self.profile.get_latency(compression_ratio=ratio)
+
+    def get_drop_rate(self) -> float:
+        return self.profile.get_drop_rate()
+
+    def get_compute_speed(self) -> float:
+        return self.profile.get_compute_speed()
+
+    def get_round_time(self, base_compute_ms: float = 100.0) -> float:
+        ratio = self.get_compression_ratio()
+        return self.profile.get_round_time(
+            base_compute_ms=base_compute_ms,
+            compression_ratio=ratio,
+        )

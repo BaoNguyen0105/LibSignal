@@ -3,6 +3,7 @@ from federated.trainer.base import BaseFLTrainer
 from federated.selection import build_selector
 from federated.aggregation import build_aggregator
 from federated.compression import build_compressor
+from federated.metrics import compute_scoped_metrics
 
 
 @Registry.register_trainer('fl_tsc')
@@ -39,9 +40,25 @@ class SyncFLTrainer(BaseFLTrainer):
             self.logger.warning("[FL] All clients dropped updates this round.")
             return
 
-        global_weights = self.aggregator.aggregate(
-            client_weights, sample_counts, clients=active_clients
+        round_metrics = compute_scoped_metrics(
+            self.fl_metrics,
+            "round",
+            selected_clients=self.selected_clients,
+            active_clients=active_clients,
+            client_weights=client_weights,
+            global_weights=self.global_weights,
         )
+        if round_metrics:
+            round_str = ", ".join(f"{k}:{v:.4f}" for k, v in round_metrics.items())
+            self.logger.info(f"[FL Round Metrics] {round_str}")
+
+        global_weights = self.aggregator.aggregate(
+            client_weights,
+            sample_counts,
+            clients=active_clients,
+            global_weights=self.global_weights,
+        )
+        self.global_weights = global_weights
 
         for client in self.clients.values():
             client.set_weights(global_weights)
@@ -50,6 +67,8 @@ class SyncFLTrainer(BaseFLTrainer):
         self.logger.info(f"Start Training for {self.episodes} episodes...")
         for e in range(self.episodes):
             if e % self.aggregate_interval == 0:
+                for client in self.clients.values():
+                    client.step_profile()
                 self.selected_clients = self.selector.select(list(self.clients.values()))
 
             self.train_episode(e)  # Inherited from BaseFLTrainer!
