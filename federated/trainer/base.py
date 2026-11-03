@@ -31,8 +31,8 @@ class BaseFLTrainer(TSCTrainer, ABC):
         self.total_decision_num = 0
         self.flush = 0
 
-    def create_agents(self):
-        """Builds hardware profiles first, then instantiates agents and binds profile constraints."""
+    def create_clients(self):
+        """Builds hardware profiles, broadcasts a common initial global model, and constructs Clients."""
         trainer_param = Registry.mapping['trainer_mapping']['setting'].param
         profile_cfg = trainer_param.get("client_profiles", {})
         self.profiles = {
@@ -40,19 +40,12 @@ class BaseFLTrainer(TSCTrainer, ABC):
             for inter_id in self.world.intersection_ids
         }
 
-        super().create_agents()
-        for ag in self.agents:
-            profile = self.profiles[ag.get_client_id()]
-            ag.set_buffer_size(profile.buffer_size)
-
-    def create_clients(self):
-        """Constructs Client instances and broadcasts a common initial global model."""
         initial_weights = self.agents[0].get_weights()
         for ag in self.agents:
             ag.set_weights(initial_weights)
 
         self.clients = {
-            ag.get_client_id(): Client(ag, self.profiles[ag.get_client_id()], self.compressor)
+            ag.get_id(): Client(ag, self.profiles[ag.get_id()], self.compressor)
             for ag in self.agents
         }
         self.selected_clients = list(self.clients.values())

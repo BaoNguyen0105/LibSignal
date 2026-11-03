@@ -7,6 +7,7 @@ class Client:
         self.agent = agent
         self.profile = profile
         self.compressor = compressor
+        self.agent.set_buffer_size(self.profile.buffer_size)
 
     def get_weights(self, compress: bool = True, real_sleep: bool = False):
         """Returns weights (compressed or raw), or None if dropped."""
@@ -28,7 +29,7 @@ class Client:
         self.agent.reset_sample_count()
 
     def get_client_id(self):
-        return self.agent.get_client_id()
+        return self.agent.get_id()
 
     def get_latency(self):
         return self.profile.get_latency()

@@ -15,8 +15,8 @@ class FL_DQNAgent(DQNAgent, BaseFLAgent):
     from LibSignal's DQNAgent, and implements the FL interface.
     """
     def __init__(self, world, rank):
-        super().__init__(world, rank)
-        self.round_sample_count = 0
+        DQNAgent.__init__(self, world, rank)
+        BaseFLAgent.__init__(self)
 
     def remember(self, last_obs, last_phase, actions, actions_prob, rewards, obs, cur_phase, done, key):
         super().remember(last_obs, last_phase, actions, actions_prob, rewards, obs, cur_phase, done, key)
@@ -29,7 +29,7 @@ class FL_DQNAgent(DQNAgent, BaseFLAgent):
         out = self.target_model(b_tp, train=False)
         target = rewards + self.gamma * torch.max(out, dim=1)[0]
         q_values = self.model(b_t, train=True).gather(1, actions.view(-1, 1)).squeeze(1)
-        loss = (self.criterion(q_values, target) / self.action_space.n) + self.regularization_loss()
+        loss = self.criterion(q_values, target) / self.action_space.n
         self.optimizer.zero_grad()
         loss.backward()
         clip_grad_norm_(self.model.parameters(), self.grad_clip)
@@ -54,3 +54,6 @@ class FL_DQNAgent(DQNAgent, BaseFLAgent):
         state_dict = torch.load(model_name, weights_only=True)
         self.model.load_state_dict(state_dict)
         self.target_model.load_state_dict(state_dict)
+
+    def get_id(self):
+        return str(self.id)
